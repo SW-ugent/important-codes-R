@@ -1,0 +1,14 @@
+#I have a 3-level categorical variable type interacting with a continuous variable duration (centered) in a linear model. 
+#I'm using lsmeans::lsmeans to test the contrasts between different levels of type. 
+#The hypothesis is that, as duration increases, the difference between the first two levels of type should grow larger. In particular, as duration increases, I expect the second level to have a larger effect on the response variable while the first level should not be sensitive to duration.
+#How do I test whether the contrast between the first two levels of item changes as a function of the continuous variable?
+#This is the answer I found: use 
+lst = lsmeans::lstrends(mod, ~type, var="duration") 
+cld(lst) 
+pairs(lst)
+#The lstrends approach you show compares the slopes of the duration trends for each treatment. 
+#So it relates to your question but doesn't answer it directly. How about if you do
+lsm = lsmeans(mod, ~ type|duration, at = list(duration = c(10,15,60)) 
+#where you supply a few typical duration values. Then 
+print(lsm) 
+pairs(lsm)# the latter showing how the conditions compare at each duration in the at list. 
