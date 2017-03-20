@@ -1,0 +1,89 @@
+You can use normal likelihood ratio tests. Here’s a simple example. First, let’s create observations from 10 individuals based on your parameters:
+
+Asym = .6
+xmid = 23
+scal = 5
+
+n = 10
+time = seq(1,60,5)
+
+d = data.frame(time=rep(time,10),
+               Asym, xmid, scal, group=0)
+d$subj = factor(rep(1:n, each=length(time)))
+
+Now let half of them have different asymptotes and midpoint parameters:
+
+ind = (nrow(d)/2):nrow(d)
+d$Asym[ind] = d$Asym[ind] + .1
+d$xmid[ind] = d$xmid[ind] + 10
+d$group[ind] = 1
+d$group=factor(d$group)
+
+We can simulate response values for all the individuals, based on the model:
+
+set.seed(1)
+d = transform(d, y = Asym/(1+exp((xmid-time)/scal)) +
+                     rnorm(nrow(d), sd=.04))
+library(lattice)
+xyplot(y~time | group, group=subj,
+       data=d, type=c("g","l"), col="black")
+       
+       
+       We can see clear differences between the two groups, differences that the models should be able to pick up. Now let’s first try to fit a simple model, ignoring groups:
+
+> fm1 = nls(y ~ SSlogis(time, Asym, xmid, scal), data=d)
+> coef(fm1)
+      Asym       xmid       scal 
+ 0.6633042 28.5219166  5.8286082
+
+Perhaps as expected, the estimates for Asym and xmid are somewhere between the real parameter values for the two groups. (That this would be the case isn’t obvious, though, since the scale parameter is also changed, to adjust for the model misspecification.) Now let’s fit a full model, with different parameters for the two groups:
+
+> fm2 = nls(y ~ SSlogis(time, Asym[group], xmid[group], scal[group]),
+          data=d,
+          start=list(Asym=rep(.6,2), xmid=rep(23,2), scal=rep(5,2)))
+> coef(fm2)
+    Asym1     Asym2     xmid1     xmid2     scal1     scal2 
+ 0.602768  0.714199 22.769315 33.331976  4.629332  4.749555
+
+Since the two models are nested, we can do a likelihood ratio test:
+
+> anova(fm1, fm2)
+Analysis of Variance Table
+
+Model 1: y ~ SSlogis(time, Asym, xmid, scal)
+Model 2: y ~ SSlogis(time, Asym[group], xmid[group], scal[group])
+  Res.Df Res.Sum Sq Df  Sum Sq F value    Pr(>F)    
+1    117    0.70968                                 
+2    114    0.13934  3 0.57034  155.54 < 2.2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+The extremely small p-value clearly shows that the simple model was too simple; the two groups do differ in their parameters.
+
+However, the two scale parameters estimates are almost identical, with a difference of just .1. Perhaps we need only need one scale parameter? (Of course we know the answer is yes, since we have simulated data.)
+
+(The difference between the two asymptote parameters is also just .1, but that’s a large difference when we take the standard errors into account – see summary(fm2).)
+
+So we fit a new model, with a common scale parameter for the two groups, but different Asym and xmid parameters, as before:
+
+> fm3 = nls(y ~ SSlogis(time, Asym[group], xmid[group], scal),
+          data=d,
+          start=list(Asym=rep(.6,2), xmid=rep(23,2), scal=5))
+> coef(fm3)
+     Asym1      Asym2      xmid1      xmid2       scal 
+ 0.6035251  0.7129002 22.7821155 33.3080264  4.6928316
+
+And since the reduced model is nested in the full model, we can again do a likelihood ratio test:
+
+> anova(fm3, fm2)
+Analysis of Variance Table
+
+Model 1: y ~ SSlogis(time, Asym[group], xmid[group], scal)
+Model 2: y ~ SSlogis(time, Asym[group], xmid[group], scal[group])
+  Res.Df Res.Sum Sq Df     Sum Sq F value Pr(>F)
+1    115    0.13945                             
+2    114    0.13934  1 0.00010637   0.087 0.7685
+
+The large p-value indicates that the reduced model fits as well as the full model, as expected.
+
+We can of course do similar tests to check if different parameter values are needed for just Asym, just xmid or both. That said, I would not recommend doing stepwise regression like this to eliminate parameters. Instead, just test the full model (fm2) against the simple model (fm1), and be happy with the results. To quantify any differences, plots will be helpful.
