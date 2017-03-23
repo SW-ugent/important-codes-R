@@ -1,0 +1,10 @@
+##You need predict in order to interpolate the predictions between the fitted points.
+
+d <- data.frame(x=seq(1,11,by=2),
+                y=c(0.0100,2.3984,11.0256,4.0272,0.2408,0.0200))
+lm1 <-lm(y ~ log(x)+x, data=d)
+lm2 <-lm(y ~ I(x^2)+x, data=d)
+xvec <- seq(0,12,length=101)
+plot(d)
+lines(xvec,predict(lm1,data.frame(x=xvec)))
+lines(xvec,predict(lm2,data.frame(x=xvec)))
